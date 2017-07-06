@@ -156,6 +156,23 @@ namespace TabGroupJumperVSIX
                 var topLevel = FilterAndSort(GetValidDocuments(dte), activeDocument)
                     .ToList();
 
+                // for vertical tabs, t.Top might all be the same... not sure why.
+                // Maybe this could help to get the actual positions? 
+                // https://msdn.microsoft.com/en-us/library/microsoft.visualstudio.shell.interop.ivsuishelldocumentwindowmgr.savedocumentwindowpositions.aspx
+                // See
+                // https://github.com/eamodio/SaveAllTheTabs/blob/master/src/SaveAllTheTabs/DocumentManager.cs#L248
+                // for example usage
+                // 
+                //var debug = topLevel.Select(w =>
+                //                                new
+                //                                {
+                //                                    w.Left,
+                //                                    w.Top,
+                //                                    w.Width,
+                //                                    w.Height,
+                //                                    w.Document.Name,
+                //                                }).ToList();
+
                 if (topLevel.Count == 0)
                     return;
 
