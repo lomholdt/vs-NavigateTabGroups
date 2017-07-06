@@ -75,11 +75,14 @@ namespace TabGroupJumperVSIX
         commandService.AddCommand(
             new MenuCommand(_tabGroupMoverLeftRight.MenuItemCallback,
                             new CommandID(CommandSet, CommandIdJumpRight)));
+
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback, new CommandID(CommandSet, CommandIdJumpUp)));
+            new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
+                            new CommandID(CommandSet, CommandIdJumpUp)));
         commandService.AddCommand(
             new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
                             new CommandID(CommandSet, CommandIdJumpDown)));
+
         commandService.AddCommand(
             new MenuCommand(_tabGroupMoverNextPrevious.MenuItemCallback,
                             new CommandID(CommandSet, CommandIdJumpPrevious)));

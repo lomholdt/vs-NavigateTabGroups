@@ -49,8 +49,8 @@
       <Menu guid="guidTabGroupJumpPackageCmdSet" id="SubMenu" priority="0x0100" type="Menu">
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="MyMenuGroup"/>
         <Strings>
-          <ButtonText>TabGroupJumper</ButtonText>
-          <CommandName>TabGroupJumper</CommandName>
+          <ButtonText>Navigate Tab Groups</ButtonText>
+          <CommandName>Navigate Tab Groups</CommandName>
         </Strings>
       </Menu>
     </Menus>
@@ -70,8 +70,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpLeftArrow" />
         <Strings>
-          <CommandName>CommandIdJumpLeft</CommandName>
-          <ButtonText>Jump Left</ButtonText>
+          <ButtonText>Navigate Left</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Left</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -79,8 +79,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpRightArrow" />
         <Strings>
-          <CommandName>CommandIdJumpRight</CommandName>
-          <ButtonText>Jump Right</ButtonText>
+          <ButtonText>Navigate Right</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Right</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -88,8 +88,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpUpArrow" />
         <Strings>
-          <CommandName>CommandIdJumpUp</CommandName>
-          <ButtonText>Jump Up</ButtonText>
+          <ButtonText>Navigate Up</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Up</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -97,8 +97,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpDownArrow" />
         <Strings>
-          <CommandName>CommandIdJumpDown</CommandName>
-          <ButtonText>Jump Down</ButtonText>
+          <ButtonText>Navigate Down</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Down</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -106,8 +106,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpLeftArrow" />
         <Strings>
-          <CommandName>CommandIdJumpPrevious</CommandName>
-          <ButtonText>Jump Previous</ButtonText>
+          <ButtonText>Navigate Previous</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Previous</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -115,8 +115,8 @@
         <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
         <Icon guid="guidImages" id="bmpRightArrow" />
         <Strings>
-          <CommandName>CommandIdJumpNext</CommandName>
-          <ButtonText>Jump Next</ButtonText>
+          <ButtonText>Navigate Next</ButtonText>
+          <LocCanonicalName>NavigateTabGroups.Next</LocCanonicalName>
         </Strings>
       </Button>
 
@@ -147,10 +147,10 @@
 
   <Symbols>
     <!-- This is the package guid. -->
-    <GuidSymbol name="guidTabGroupJumpPackage" value="{43c7644b-709c-49e9-9a74-3c18107fd816}" />
+    <GuidSymbol name="guidTabGroupJumpPackage" value="{97BD16B1-650C-4BE2-B0EF-B305936F4AFD}" />
 
     <!-- This is the guid used to group the menu commands together -->
-    <GuidSymbol name="guidTabGroupJumpPackageCmdSet" value="{67e760eb-74c3-46f2-9b85-c7af2d351428}">
+    <GuidSymbol name="guidTabGroupJumpPackageCmdSet" value="{06E4ACFA-6246-4E7F-B9EC-7843B718078C}">
       <IDSymbol name="MyMenuGroup" value="0x1020" />
 
       <IDSymbol name="SubMenu" value="0x1100"/>
@@ -165,7 +165,7 @@
 
     </GuidSymbol>
 
-    <GuidSymbol name="guidImages" value="{b74f64ac-6b17-4c4e-9e8c-bc7764427108}" >
+    <GuidSymbol name="guidImages" value="{2AD9D528-66F6-4212-964C-AB252D40DE3B}" >
       <IDSymbol name="bmpPic1" value="1" />
       <IDSymbol name="bmpPic2" value="2" />
       <IDSymbol name="bmpPicSearch" value="3" />
