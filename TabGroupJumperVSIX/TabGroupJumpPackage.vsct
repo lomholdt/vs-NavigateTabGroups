@@ -101,6 +101,25 @@
           <ButtonText>Jump Down</ButtonText>
         </Strings>
       </Button>
+
+      <Button guid="guidTabGroupJumpPackageCmdSet" id="CommandIdJumpPrevious" priority="0x0000" type="Button">
+        <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
+        <Icon guid="guidImages" id="bmpLeftArrow" />
+        <Strings>
+          <CommandName>CommandIdJumpPrevious</CommandName>
+          <ButtonText>Jump Previous</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidTabGroupJumpPackageCmdSet" id="CommandIdJumpNext" priority="0x0000" type="Button">
+        <Parent guid="guidTabGroupJumpPackageCmdSet" id="SubMenuGroup" />
+        <Icon guid="guidImages" id="bmpRightArrow" />
+        <Strings>
+          <CommandName>CommandIdJumpNext</CommandName>
+          <ButtonText>Jump Next</ButtonText>
+        </Strings>
+      </Button>
+
     </Buttons>
 
     <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
@@ -140,6 +159,8 @@
       <IDSymbol name="CommandIdJumpRight" value="0x0101"/>
       <IDSymbol name="CommandIdJumpUp" value="0x0102"/>
       <IDSymbol name="CommandIdJumpDown" value="0x0103"/>
+      <IDSymbol name="CommandIdJumpPrevious" value="0x0104"/>
+      <IDSymbol name="CommandIdJumpNext" value="0x0105"/>
 
     </GuidSymbol>
 
