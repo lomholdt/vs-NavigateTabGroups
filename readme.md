@@ -11,14 +11,14 @@ A Visual studio extension for switching to different tab groups.
 
 Exposes various commands for navigating between tab groups:
 
-| Command                         | Description                              |
-| ------------------------------- | ---------------------------------------- |
-| `Tools.NavigateTabGroups.Right` | Moves to tab group to the **left** of the current group |
-| `Tools.NavigateTabGroups.Left`  | Moves to tab group to the **right** of the current group |
-| `Tools.NavigateTabGroups.Up`    | Moves to tab group **above** the current group |
-| `Tools.NavigateTabGroups.Down`  | Moves to tab group **below** the current group |
-| `Tools.NavigateTabGroups.Next`  | Moves to **next** tab group in the list. |
-| `Tools.NavigateTabGroups.Right` | Moves to **previous** tab group in the list |
+| Command                            | Description                              |
+| ---------------------------------- | ---------------------------------------- |
+| `Tools.NavigateTabGroups.Right`    | Moves to tab group to the **left** of the current group |
+| `Tools.NavigateTabGroups.Left`     | Moves to tab group to the **right** of the current group |
+| `Tools.NavigateTabGroups.Up`       | Moves to tab group **above** the current group |
+| `Tools.NavigateTabGroups.Down`     | Moves to tab group **below** the current group |
+| `Tools.NavigateTabGroups.Next`     | Moves to **next** tab group in the list. |
+| `Tools.NavigateTabGroups.Previous` | Moves to **previous** tab group in the list |
 
 It also exposes all of the above via the Tools menu:
 
