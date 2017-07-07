@@ -5,13 +5,18 @@
 //------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Linq;
+using System.Runtime.InteropServices;
 using EnvDTE;
 using EnvDTE80;
+using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.TextManager.Interop;
+using IServiceProvider = System.IServiceProvider;
 using Windows = EnvDTE.Windows;
 
 namespace TabGroupJumperVSIX
@@ -189,6 +194,34 @@ namespace TabGroupJumperVSIX
         topLevel[nextIndex].Activate();
       }
 
+      /// <summary>
+      ///  Gets the IVsTextView associated with the given document so that it can be measured.
+      /// </summary>
+      private IVsTextView GetTextView(Document document)
+      {
+        // TODO there must be a better way of getting the IVsTextView
+        var isOpen = VsShellUtilities.IsDocumentOpen(_serviceProvider,
+                                                     document.FullName,
+                                                     Guid.Empty,
+                                                     out var uiHierarchy,
+                                                     out uint itemID,
+                                                     out var windowFrame);
+
+        ErrorHandler.ThrowOnFailure(windowFrame.GetProperty(
+                                      (int)__VSFPROPID.VSFPROPID_DocView,
+                                      out object data
+                                    ));
+
+        if (!(data is IVsTextView || data is IVsCodeWindow))
+        {
+          
+        }
+
+        return isOpen 
+          ? VsShellUtilities.GetTextView(windowFrame)
+          : null;
+      }
+
       private static IEnumerable<Window> GetValidDocuments(DTE2 dte)
       {
         // documents that are not the focused document in a group will have Top == 0 && Left == 0
@@ -197,10 +230,10 @@ namespace TabGroupJumperVSIX
                   .Where(w => w.Top != 0 || w.Left != 0);
       }
 
-      private int GetIndexOfDocument(List<Window> windows, Document document)
+      private int GetIndexOfDocument(List<Window> windows, Document activeDoc)
       {
-        var activeDoc = document;
         int activeIdx = 0;
+
         for (int i = 0; i < windows.Count; ++i)
         {
           if (windows[i].Document == activeDoc)
@@ -216,6 +249,29 @@ namespace TabGroupJumperVSIX
       /// <summary> Clamp the given value to be between 0 and <paramref name="count"/>. </summary>
       private static int Clamp(int count, int number)
           => (number < 0 ? number + count : number) % count;
+
+      /// <summary> Measure the bounds of the given window </summary>
+      internal RECT MeasureBounds(Window window)
+      {
+        var textView = GetTextView(window.Document);
+
+        if (textView != null && GetWindowRect(textView.GetWindowHandle(), out RECT rect))
+        {
+          return rect;
+        }
+
+        // fallback where Top is wrong for windows that are vertically split. 
+        return new RECT
+               {
+                 left = window.Left,
+                 right = window.Left + window.Width,
+                 top = window.Top,
+                 bottom = window.Top + window.Height
+               };
+      }
+
+      [DllImport("user32.dll", SetLastError = true)]
+      static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
     }
 
     /// <summary> Command implementation for moving up/down. </summary>
@@ -223,11 +279,12 @@ namespace TabGroupJumperVSIX
     {
       /// <inheritdoc />
       protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
-          => windows
-              .Where(w => w.Document == activeDocument
-                          || w.Left == activeDocument.ActiveWindow.Left)
-              .OrderBy(w => w.Left)
-              .ThenBy(w => w.Top);
+        => from w in windows
+           where w.Document == activeDocument
+                 || w.Left == activeDocument.ActiveWindow.Left
+           let rect = MeasureBounds(w)
+           orderby rect.left, rect.top
+           select w;
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
@@ -239,11 +296,12 @@ namespace TabGroupJumperVSIX
     {
       /// <inheritdoc />
       protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
-          => windows
-              .Where(w => w.Document == activeDocument
-                          || w.Left != activeDocument.ActiveWindow.Left)
-              .OrderBy(w => w.Left)
-              .ThenBy(w => w.Top);
+        => from w in windows
+           where w.Document == activeDocument
+                 || w.Left != activeDocument.ActiveWindow.Left
+           let rect = MeasureBounds(w)
+           orderby rect.left, rect.top
+           select w;
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
@@ -255,9 +313,10 @@ namespace TabGroupJumperVSIX
     {
       /// <inheritdoc />
       protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
-          => windows
-              .OrderBy(w => w.Left)
-              .ThenBy(w => w.Top);
+        => from w in windows
+           let rect = MeasureBounds(w)
+           orderby rect.left, rect.top
+           select w;
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
