@@ -31,7 +31,7 @@ namespace TabGroupJumperVSIX
     /// <summary>
     /// Command menu group (command set GUID).
     /// </summary>
-    public static readonly Guid CommandSet = new Guid("67e760eb-74c3-46f2-9b85-c7af2d351428");
+    public static readonly Guid CommandSet = new Guid("06E4ACFA-6246-4E7F-B9EC-7843B718078C");
 
     /// <summary>
     /// VS Package that provides this command, not null.

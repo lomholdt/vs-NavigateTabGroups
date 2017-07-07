@@ -45,7 +45,7 @@ namespace TabGroupJumperVSIX
     /// <summary>
     /// TabGroupJumpPackage GUID string.
     /// </summary>
-    public const string PackageGuidString = "43c7644b-709c-49e9-9a74-3c18107fd816";
+    public const string PackageGuidString = "97BD16B1-650C-4BE2-B0EF-B305936F4AFD";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TabGroupJump"/> class.
