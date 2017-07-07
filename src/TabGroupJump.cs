@@ -184,10 +184,11 @@ namespace TabGroupJumperVSIX
         if (topLevel.Count == 0)
           return;
 
-        var indexOfCurrentTabGroup = GetIndexOfDocument(topLevel, activeDocument);
+        var isMovingForward = ShouldMoveForward(commandId);
+        var indexOfCurrentTabGroup = GetIndexOfDocument(topLevel, activeDocument, isMovingForward);
 
         // get the tab to activate
-        var offset = ShouldMoveForward(commandId) ? 1 : -1;
+        var offset = isMovingForward ? 1 : -1;
         int nextIndex = Clamp(topLevel.Count, indexOfCurrentTabGroup + offset);
 
         // and activate it
@@ -230,18 +231,46 @@ namespace TabGroupJumperVSIX
                   .Where(w => w.Top != 0 || w.Left != 0);
       }
 
-      private int GetIndexOfDocument(List<Window> windows, Document activeDoc)
+      private int GetIndexOfDocument(List<Window> windows, Document activeDoc, bool isMovingForward)
       {
         int activeIdx = 0;
 
-        for (int i = 0; i < windows.Count; ++i)
+        // HACK: when we have a multi-pane editor (such as WPF design view + xml view), we'll have two
+        // entries for the same document.  This causes problems when we're moving through the list:
+        // Imagine that the multi-pane editor is at index N and N+1 (both the same document); when we
+        // move from N to N+1, no problem, but when we then try to move forward again, if we start the
+        // search for the "current" document at the beginning of the list, we'll think we're still at N
+        // instead of N+1.  So, instead when we're moving forward through the list, we start the search
+        // at the end of the list, and when we're moving backwards, we'll start the search at the
+        // beginning.
+        // 
+        // Note that this is a hack; we should be looking at the current editor window, not the current
+        // document; we can fix this if anyone ever complains.
+        // 
+        // (another way to fix it would be to ignore non-editor panes) 
+        if (isMovingForward)
         {
-          if (windows[i].Document == activeDoc)
+          for (int i = windows.Count - 1; i >= 0; --i)
           {
-            activeIdx = i;
-            break;
+            if (windows[i].Document == activeDoc)
+            {
+              activeIdx = i;
+              break;
+            }
           }
         }
+        else
+        {
+          for (int i = 0; i < windows.Count; ++i)
+          {
+            if (windows[i].Document == activeDoc)
+            {
+              activeIdx = i;
+              break;
+            }
+          }
+        }
+       
 
         return activeIdx;
       }
