@@ -5,7 +5,7 @@
     <DisplayName>Navigate Tab Groups</DisplayName>
     <Description xml:space="preserve">Exposes commands for navigating to different tab groups, allowing keyboard shortcuts to be assigned to each command</Description>
     <MoreInfo>https://github.com/zastrowm/vs-NavigateTabGroups</MoreInfo>
-    <License>license</License>
+    <License>license.txt</License>
     <GettingStartedGuide>https://github.com/zastrowm/vs-NavigateTabGroups</GettingStartedGuide>
     <Tags>tabs; tab groups; keyboard; keyboard shortcuts;</Tags>
   </Metadata>
