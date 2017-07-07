@@ -5,6 +5,8 @@ A Visual studio extension for switching to different tab groups.
 
 [In this question](https://stackoverflow.com/questions/23381874/how-can-i-switch-to-a-different-tab-group-using-the-keyboard-in-visual-studio-20) someone wants to switch between different tab groups in Visual Studio; currently there is no built-in way to do so, so this extension adds a way.
 
+[Download from Visual Studio Marketplace](https://marketplace.visualstudio.com/vsgallery/ffdfde72-5ca0-4296-9d65-1ef608ae4ac1)
+
 ## Exposed Commands
 
 Exposes various commands for navigating between tab groups:
@@ -20,7 +22,7 @@ Exposes various commands for navigating between tab groups:
 
 It also exposes all of the above via the Tools menu:
 
-![tools-menu](docs\tools-menu.png)
+![tools-menu](docs/tools-menu.png)
 
 It also assigns a default keyboard shortcut to `Tools.NavigateTabGroups.Previous` (`CTRL+ALT+Left`) and  `Tools.NavigateTabGroups.Next` (`CTRL+ALT+Right`)
 
