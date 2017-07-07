@@ -64,6 +64,9 @@
     <Compile Include="TabGroupJumpPackage.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\license">
+      <Link>license</Link>
+    </None>
     <None Include="app.config" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
@@ -75,11 +78,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="..\license.txt">
-      <Link>license.txt</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      <IncludeInVSIX>true</IncludeInVSIX>
-    </Content>
     <Content Include="Resources\TabGroupJump.png" />
     <Content Include="Resources\TabGroupJumpPackage.ico" />
     <VSCTCompile Include="TabGroupJumpPackage.vsct">
