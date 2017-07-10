@@ -17,7 +17,6 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.TextManager.Interop;
 using IServiceProvider = System.IServiceProvider;
-using Windows = EnvDTE.Windows;
 
 namespace TabGroupJumperVSIX
 {
@@ -70,30 +69,30 @@ namespace TabGroupJumperVSIX
       _tabGroupMoverNextPrevious.Initialize(ServiceProvider);
 
       OleMenuCommandService commandService =
-          ServiceProvider.GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
+        ServiceProvider.GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
       if (commandService != null)
       {
         // Add the jump commands to the handler
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverLeftRight.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpLeft)));
+          new MenuCommand(_tabGroupMoverLeftRight.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpLeft)));
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverLeftRight.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpRight)));
+          new MenuCommand(_tabGroupMoverLeftRight.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpRight)));
 
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpUp)));
+          new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpUp)));
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpDown)));
+          new MenuCommand(_tabGroupMoverUpDown.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpDown)));
 
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverNextPrevious.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpPrevious)));
+          new MenuCommand(_tabGroupMoverNextPrevious.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpPrevious)));
         commandService.AddCommand(
-            new MenuCommand(_tabGroupMoverNextPrevious.MenuItemCallback,
-                            new CommandID(CommandSet, CommandIdJumpNext)));
+          new MenuCommand(_tabGroupMoverNextPrevious.MenuItemCallback,
+                          new CommandID(CommandSet, CommandIdJumpNext)));
       }
     }
 
@@ -131,7 +130,7 @@ namespace TabGroupJumperVSIX
       ///  We need a service provider and having an Initialize method makes for smaller derived classes.
       /// </summary>
       public void Initialize(IServiceProvider serviceProvider)
-          => _serviceProvider = serviceProvider;
+        => _serviceProvider = serviceProvider;
 
       /// <summary>
       ///  How the document-windows should ordered.  They should be ordered such that when
@@ -162,7 +161,7 @@ namespace TabGroupJumperVSIX
         var activeDocument = dte.ActiveDocument;
 
         var topLevel = FilterAndSort(GetValidDocuments(dte), activeDocument)
-            .ToList();
+          .ToList();
 
         // for vertical tabs, t.Top might all be the same... not sure why.
         // Maybe this could help to get the actual positions? 
@@ -200,25 +199,30 @@ namespace TabGroupJumperVSIX
       /// </summary>
       private IVsTextView GetTextView(Document document)
       {
+        uint itemID;
+        IVsWindowFrame windowFrame;
+        IVsUIHierarchy uiHierarchy;
+
         // TODO there must be a better way of getting the IVsTextView
         var isOpen = VsShellUtilities.IsDocumentOpen(_serviceProvider,
                                                      document.FullName,
                                                      Guid.Empty,
-                                                     out var uiHierarchy,
-                                                     out uint itemID,
-                                                     out var windowFrame);
+                                                     out uiHierarchy,
+                                                     out itemID,
+                                                     out windowFrame);
+
+        object data;
 
         ErrorHandler.ThrowOnFailure(windowFrame.GetProperty(
                                       (int)__VSFPROPID.VSFPROPID_DocView,
-                                      out object data
+                                      out data
                                     ));
 
         if (!(data is IVsTextView || data is IVsCodeWindow))
         {
-          
         }
 
-        return isOpen 
+        return isOpen
           ? VsShellUtilities.GetTextView(windowFrame)
           : null;
       }
@@ -270,21 +274,22 @@ namespace TabGroupJumperVSIX
             }
           }
         }
-       
 
         return activeIdx;
       }
 
       /// <summary> Clamp the given value to be between 0 and <paramref name="count"/>. </summary>
       private static int Clamp(int count, int number)
-          => (number < 0 ? number + count : number) % count;
+        => (number < 0 ? number + count : number) % count;
 
       /// <summary> Measure the bounds of the given window </summary>
       internal RECT MeasureBounds(Window window)
       {
         var textView = GetTextView(window.Document);
 
-        if (textView != null && GetWindowRect(textView.GetWindowHandle(), out RECT rect))
+        RECT rect;
+
+        if (textView != null && GetWindowRect(textView.GetWindowHandle(), out rect))
         {
           return rect;
         }
@@ -300,7 +305,7 @@ namespace TabGroupJumperVSIX
       }
 
       [DllImport("user32.dll", SetLastError = true)]
-      static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
+      private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
     }
 
     /// <summary> Command implementation for moving up/down. </summary>
@@ -317,7 +322,7 @@ namespace TabGroupJumperVSIX
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
-          => commandId == CommandIdJumpDown;
+        => commandId == CommandIdJumpDown;
     }
 
     /// <summary> Command implementation for moving left/right. </summary>
@@ -334,7 +339,7 @@ namespace TabGroupJumperVSIX
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
-          => commandId == CommandIdJumpRight;
+        => commandId == CommandIdJumpRight;
     }
 
     /// <summary> Command implementation for moving next/previous. </summary>
@@ -349,7 +354,7 @@ namespace TabGroupJumperVSIX
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
-          => commandId == CommandIdJumpNext;
+        => commandId == CommandIdJumpNext;
     }
   }
 }
