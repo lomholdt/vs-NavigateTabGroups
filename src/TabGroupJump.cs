@@ -133,8 +133,8 @@ namespace TabGroupJumperVSIX
       ///  should return true when moving down.
       /// </summary>
       /// <seealso cref="ShouldMoveForward"/>
-      protected abstract IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
-                                                               WindowData activeDocument);
+      protected abstract IEnumerable<ActivePane> FilterAndSort(IEnumerable<ActivePane> panes,
+                                                               ActivePane activePane);
 
       /// <summary>
       ///  True if the given command represents moving forward in the collection returned by
@@ -153,58 +153,40 @@ namespace TabGroupJumperVSIX
         DTE2 dte = (DTE2)_serviceProvider.GetService(typeof(DTE));
         int commandId = ((MenuCommand)sender).CommandID.ID;
 
-        var activeWindows = GetWindowData(dte).ToList();
+        var activePanes = GetActivePanes(dte).ToList();
 
-        WindowData activeWindow = null;
+        ActivePane activePane = null;
 
-        foreach (var windowData in activeWindows)
+        foreach (var pane in activePanes)
         {
-          if (windowData.Window == dte.ActiveWindow)
+          if (pane.Window == dte.ActiveWindow)
           {
-            activeWindow = windowData;
+            activePane = pane;
             break;
           }
         }
 
-        if (activeWindow == null)
+        if (activePane == null)
           return;
 
-        var topLevel = FilterAndSort(activeWindows, activeWindow)
-          .ToList();
+        var filteredPanes = FilterAndSort(activePanes, activePane).ToList();
 
-        // for vertical tabs, t.Top might all be the same... not sure why.
-        // Maybe this could help to get the actual positions? 
-        // https://msdn.microsoft.com/en-us/library/microsoft.visualstudio.shell.interop.ivsuishelldocumentwindowmgr.savedocumentwindowpositions.aspx
-        // See
-        // https://github.com/eamodio/SaveAllTheTabs/blob/master/src/SaveAllTheTabs/DocumentManager.cs#L248
-        // for example usage
-        // 
-        //var debug = topLevel.Select(w =>
-        //                                new
-        //                                {
-        //                                    w.Left,
-        //                                    w.Top,
-        //                                    w.Width,
-        //                                    w.Height,
-        //                                    w.Document.Name,
-        //                                }).ToList();
-
-        if (topLevel.Count == 0)
+        if (filteredPanes.Count == 0)
           return;
 
         var isMovingForward = ShouldMoveForward(commandId);
-        var indexOfCurrentTabGroup = GetIndexofActiveWindow(topLevel, dte.ActiveWindow);
+        var indexOfCurrentTabGroup = GetActivePaneIndex(filteredPanes, dte.ActiveWindow);
 
         // get the tab to activate
         var offset = isMovingForward ? 1 : -1;
-        int nextIndex = Clamp(topLevel.Count, indexOfCurrentTabGroup + offset);
+        int nextIndex = Clamp(filteredPanes.Count, indexOfCurrentTabGroup + offset);
 
         // and activate it
-        topLevel[nextIndex].Window.Activate();
+        filteredPanes[nextIndex].Window.Activate();
       }
 
       /// <summary> Get all of the Windows that have an associated frame. </summary>
-      private IEnumerable<WindowData> GetWindowData(DTE2 dte)
+      private IEnumerable<ActivePane> GetActivePanes(DTE2 dte)
       {
         var existingWindows = new HashSet<Window>(GetActiveWindows(dte));
 
@@ -217,7 +199,7 @@ namespace TabGroupJumperVSIX
               && existingWindows.Contains(typedWindow)
             )
           {
-            yield return new WindowData(typedWindow, frame);
+            yield return new ActivePane(typedWindow, frame);
           }
         }
       }
@@ -248,11 +230,11 @@ namespace TabGroupJumperVSIX
         }
       }
 
-      private static int GetIndexofActiveWindow(List<WindowData> windows, Window activeWindow)
+      private static int GetActivePaneIndex(List<ActivePane> panes, Window activeWindow)
       {
-        for (var i = 0; i < windows.Count; i++)
+        for (var i = 0; i < panes.Count; i++)
         {
-          var data = windows[i];
+          var data = panes[i];
           if (data.Window == activeWindow)
             return i;
         }
@@ -265,19 +247,19 @@ namespace TabGroupJumperVSIX
         => (number < 0 ? number + count : number) % count;
     }
 
-    internal class WindowData
+    /// <summary> Information about an active window. </summary>
+    private class ActivePane
     {
-      public Window Window { get; }
-      public IVsWindowFrame AssociatedFrame { get; }
-
-      private RECT? _measuredRect;
-
-      public WindowData(Window window, IVsWindowFrame associatedFrame)
+      public ActivePane(Window window, IVsWindowFrame associatedFrame)
       {
         Window = window;
         AssociatedFrame = associatedFrame;
         Bounds = MeasureBounds();
       }
+
+      public Window Window { get; }
+
+      public IVsWindowFrame AssociatedFrame { get; }
 
       public RECT Bounds { get; }
 
@@ -315,14 +297,17 @@ namespace TabGroupJumperVSIX
       }
 
       /// <inheritdoc />
-      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
-                                                               WindowData activeWindow)
-        => from w in windows
-           where w == activeWindow
-                  // only return those that aren't aligned vertically
-                 || w.Bounds.left == activeWindow.Bounds.left
-           orderby w.Bounds.left, w.Bounds.top
-           select w;
+      protected override IEnumerable<ActivePane> FilterAndSort(IEnumerable<ActivePane> panes,
+                                                               ActivePane activePane)
+      {
+        return from pane in panes
+               // we always need the active window in the list
+               where pane == activePane
+                 // only return those that are aligned vertically
+                     || pane.Bounds.left == activePane.Bounds.left
+               orderby pane.Bounds.top
+               select pane;
+      }
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
@@ -338,15 +323,16 @@ namespace TabGroupJumperVSIX
       }
 
       /// <inheritdoc />
-      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
-                                                               WindowData activeWindow)
+      protected override IEnumerable<ActivePane> FilterAndSort(IEnumerable<ActivePane> panes,
+                                                               ActivePane activePane)
       {
-        return from w in windows
-               // only return those that aren't aligned vertically
-               where w == activeWindow
-                     || w.Bounds.left != activeWindow.Bounds.left
-               orderby w.Bounds.left, w.Bounds.top
-               select w;
+        return from pane in panes
+               // we always need the active window in the list
+               where pane == activePane
+                 // only return those that aren't aligned vertically
+                     || pane.Bounds.left != activePane.Bounds.left
+               orderby pane.Bounds.left, pane.Bounds.top
+               select pane;
       }
 
       /// <inheritdoc />
@@ -363,11 +349,13 @@ namespace TabGroupJumperVSIX
       }
 
       /// <inheritdoc />
-      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
-                                                               WindowData activeWindow)
-        => from w in windows
-           orderby w.Bounds.left, w.Bounds.top
-           select w;
+      protected override IEnumerable<ActivePane> FilterAndSort(IEnumerable<ActivePane> panes,
+                                                               ActivePane activePane)
+      {
+        return from pane in panes
+               orderby pane.Bounds.left, pane.Bounds.top
+               select pane;
+      }
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
