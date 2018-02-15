@@ -15,7 +15,6 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.TextManager.Interop;
 using IServiceProvider = System.IServiceProvider;
 
 namespace TabGroupJumperVSIX
@@ -60,17 +59,11 @@ namespace TabGroupJumperVSIX
 
       this.package = package;
 
-      _tabGroupMoverLeftRight = new TabGroupMoverLeftRight();
-      _tabGroupMoverUpDown = new TabGroupMoverUpDown();
-      _tabGroupMoverNextPrevious = new TabGroupMoverNextPrevious();
+      _tabGroupMoverLeftRight = new TabGroupMoverLeftRight(ServiceProvider);
+      _tabGroupMoverUpDown = new TabGroupMoverUpDown(ServiceProvider);
+      _tabGroupMoverNextPrevious = new TabGroupMoverNextPrevious(ServiceProvider);
 
-      _tabGroupMoverLeftRight.Initialize(ServiceProvider);
-      _tabGroupMoverUpDown.Initialize(ServiceProvider);
-      _tabGroupMoverNextPrevious.Initialize(ServiceProvider);
-
-      OleMenuCommandService commandService =
-        ServiceProvider.GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
-      if (commandService != null)
+      if (ServiceProvider.GetService(typeof(IMenuCommandService)) is OleMenuCommandService commandService)
       {
         // Add the jump commands to the handler
         commandService.AddCommand(
@@ -97,7 +90,7 @@ namespace TabGroupJumperVSIX
     }
 
     /// <summary>
-    /// Gets the instance of the command.
+    /// Gets the instance of the package.
     /// </summary>
     public static TabGroupJump Instance { get; private set; }
 
@@ -124,13 +117,14 @@ namespace TabGroupJumperVSIX
     /// </summary>
     private abstract class TabGroupMover
     {
-      private IServiceProvider _serviceProvider;
+      private readonly IServiceProvider _serviceProvider;
+      private readonly IVsUIShell _uiShell;
 
-      /// <summary>
-      ///  We need a service provider and having an Initialize method makes for smaller derived classes.
-      /// </summary>
-      public void Initialize(IServiceProvider serviceProvider)
-        => _serviceProvider = serviceProvider;
+      protected TabGroupMover(IServiceProvider serviceProvider)
+      {
+        _serviceProvider = serviceProvider;
+        _uiShell = (IVsUIShell)serviceProvider.GetService(typeof(SVsUIShell));
+      }
 
       /// <summary>
       ///  How the document-windows should ordered.  They should be ordered such that when
@@ -139,7 +133,8 @@ namespace TabGroupJumperVSIX
       ///  should return true when moving down.
       /// </summary>
       /// <seealso cref="ShouldMoveForward"/>
-      protected abstract IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument);
+      protected abstract IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
+                                                               WindowData activeDocument);
 
       /// <summary>
       ///  True if the given command represents moving forward in the collection returned by
@@ -158,9 +153,23 @@ namespace TabGroupJumperVSIX
         DTE2 dte = (DTE2)_serviceProvider.GetService(typeof(DTE));
         int commandId = ((MenuCommand)sender).CommandID.ID;
 
-        var activeDocument = dte.ActiveDocument;
+        var activeWindows = GetWindowData(dte).ToList();
 
-        var topLevel = FilterAndSort(GetValidDocuments(dte), activeDocument)
+        WindowData activeWindow = null;
+
+        foreach (var windowData in activeWindows)
+        {
+          if (windowData.Window == dte.ActiveWindow)
+          {
+            activeWindow = windowData;
+            break;
+          }
+        }
+
+        if (activeWindow == null)
+          return;
+
+        var topLevel = FilterAndSort(activeWindows, activeWindow)
           .ToList();
 
         // for vertical tabs, t.Top might all be the same... not sure why.
@@ -184,112 +193,101 @@ namespace TabGroupJumperVSIX
           return;
 
         var isMovingForward = ShouldMoveForward(commandId);
-        var indexOfCurrentTabGroup = GetIndexOfDocument(topLevel, activeDocument, isMovingForward);
+        var indexOfCurrentTabGroup = GetIndexofActiveWindow(topLevel, dte.ActiveWindow);
 
         // get the tab to activate
         var offset = isMovingForward ? 1 : -1;
         int nextIndex = Clamp(topLevel.Count, indexOfCurrentTabGroup + offset);
 
         // and activate it
-        topLevel[nextIndex].Activate();
+        topLevel[nextIndex].Window.Activate();
       }
 
-      /// <summary>
-      ///  Gets the IVsTextView associated with the given document so that it can be measured.
-      /// </summary>
-      private IVsTextView GetTextView(Document document)
+      /// <summary> Get all of the Windows that have an associated frame. </summary>
+      private IEnumerable<WindowData> GetWindowData(DTE2 dte)
       {
-        uint itemID;
-        IVsWindowFrame windowFrame;
-        IVsUIHierarchy uiHierarchy;
+        var existingWindows = new HashSet<Window>(GetActiveWindows(dte));
 
-        // TODO there must be a better way of getting the IVsTextView
-        var isOpen = VsShellUtilities.IsDocumentOpen(_serviceProvider,
-                                                     document.FullName,
-                                                     Guid.Empty,
-                                                     out uiHierarchy,
-                                                     out itemID,
-                                                     out windowFrame);
+        var frames = GetFrames();
 
-        object data;
-
-        ErrorHandler.ThrowOnFailure(windowFrame.GetProperty(
-                                      (int)__VSFPROPID.VSFPROPID_DocView,
-                                      out data
-                                    ));
-
-        if (!(data is IVsTextView || data is IVsCodeWindow))
+        foreach (var frame in frames)
         {
+          if (frame.GetProperty((int)__VSFPROPID.VSFPROPID_ExtWindowObject, out var window) == 0
+              && window is Window typedWindow
+              && existingWindows.Contains(typedWindow)
+            )
+          {
+            yield return new WindowData(typedWindow, frame);
+          }
         }
-
-        return isOpen
-          ? VsShellUtilities.GetTextView(windowFrame)
-          : null;
       }
 
-      private static IEnumerable<Window> GetValidDocuments(DTE2 dte)
+      /// <summary> Gets all of the windows that are currently positioned with a valid Top or Left. </summary>
+      private IEnumerable<Window> GetActiveWindows(DTE2 dte)
       {
         // documents that are not the focused document in a group will have Top == 0 && Left == 0
-        return dte.Windows.Cast<Window>()
-                  .Where(w => w.Kind == "Document")
-                  .Where(w => w.Top != 0 || w.Left != 0);
+        return from window in dte.Windows.Cast<Window>()
+               where window.Kind == "Document"
+               where window.Top != 0 || window.Left != 0
+               select window;
       }
 
-      private int GetIndexOfDocument(List<Window> windows, Document activeDoc, bool isMovingForward)
+      /// <summary> Get all known <see cref="IVsWindowFrame"/>, lazily. </summary>
+      private IEnumerable<IVsWindowFrame> GetFrames()
       {
-        int activeIdx = 0;
+        var array = new IVsWindowFrame[1];
+        _uiShell.GetDocumentWindowEnum(out var frames);
 
-        // HACK: when we have a multi-pane editor (such as WPF design view + xml view), we'll have two
-        // entries for the same document.  This causes problems when we're moving through the list:
-        // Imagine that the multi-pane editor is at index N and N+1 (both the same document); when we
-        // move from N to N+1, no problem, but when we then try to move forward again, if we start the
-        // search for the "current" document at the beginning of the list, we'll think we're still at N
-        // instead of N+1.  So, instead when we're moving forward through the list, we start the search
-        // at the end of the list, and when we're moving backwards, we'll start the search at the
-        // beginning.
-        // 
-        // Note that this is a hack; we should be looking at the current editor window, not the current
-        // document; we can fix this if anyone ever complains.
-        // 
-        // (another way to fix it would be to ignore non-editor panes) 
-        if (isMovingForward)
+        while (true)
         {
-          for (int i = windows.Count - 1; i >= 0; --i)
-          {
-            if (windows[i].Document == activeDoc)
-            {
-              activeIdx = i;
-              break;
-            }
-          }
+          var errorCode = frames.Next(1, array, out _);
+          if (errorCode != VSConstants.S_OK)
+            break;
+
+          yield return array[0];
         }
-        else
+      }
+
+      private static int GetIndexofActiveWindow(List<WindowData> windows, Window activeWindow)
+      {
+        for (var i = 0; i < windows.Count; i++)
         {
-          for (int i = 0; i < windows.Count; ++i)
-          {
-            if (windows[i].Document == activeDoc)
-            {
-              activeIdx = i;
-              break;
-            }
-          }
+          var data = windows[i];
+          if (data.Window == activeWindow)
+            return i;
         }
 
-        return activeIdx;
+        return 0;
       }
 
       /// <summary> Clamp the given value to be between 0 and <paramref name="count"/>. </summary>
       private static int Clamp(int count, int number)
         => (number < 0 ? number + count : number) % count;
+    }
+
+    internal class WindowData
+    {
+      public Window Window { get; }
+      public IVsWindowFrame AssociatedFrame { get; }
+
+      private RECT? _measuredRect;
+
+      public WindowData(Window window, IVsWindowFrame associatedFrame)
+      {
+        Window = window;
+        AssociatedFrame = associatedFrame;
+        Bounds = MeasureBounds();
+      }
+
+      public RECT Bounds { get; }
 
       /// <summary> Measure the bounds of the given window </summary>
-      internal RECT MeasureBounds(Window window)
+      private RECT MeasureBounds()
       {
-        var textView = GetTextView(window.Document);
+        var window = Window;
+        var textView = VsShellUtilities.GetTextView(AssociatedFrame);
 
-        RECT rect;
-
-        if (textView != null && GetWindowRect(textView.GetWindowHandle(), out rect))
+        if (textView != null && GetWindowRect(textView.GetWindowHandle(), out var rect))
         {
           return rect;
         }
@@ -311,13 +309,19 @@ namespace TabGroupJumperVSIX
     /// <summary> Command implementation for moving up/down. </summary>
     private class TabGroupMoverUpDown : TabGroupMover
     {
+      public TabGroupMoverUpDown(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+      {
+      }
+
       /// <inheritdoc />
-      protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
+      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
+                                                               WindowData activeWindow)
         => from w in windows
-           where w.Document == activeDocument
-                 || w.Left == activeDocument.ActiveWindow.Left
-           let rect = MeasureBounds(w)
-           orderby rect.left, rect.top
+           where w == activeWindow
+                  // only return those that aren't aligned vertically
+                 || w.Bounds.left == activeWindow.Bounds.left
+           orderby w.Bounds.left, w.Bounds.top
            select w;
 
       /// <inheritdoc />
@@ -328,14 +332,22 @@ namespace TabGroupJumperVSIX
     /// <summary> Command implementation for moving left/right. </summary>
     private class TabGroupMoverLeftRight : TabGroupMover
     {
+      public TabGroupMoverLeftRight(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+      {
+      }
+
       /// <inheritdoc />
-      protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
-        => from w in windows
-           where w.Document == activeDocument
-                 || w.Left != activeDocument.ActiveWindow.Left
-           let rect = MeasureBounds(w)
-           orderby rect.left, rect.top
-           select w;
+      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
+                                                               WindowData activeWindow)
+      {
+        return from w in windows
+               // only return those that aren't aligned vertically
+               where w == activeWindow
+                     || w.Bounds.left != activeWindow.Bounds.left
+               orderby w.Bounds.left, w.Bounds.top
+               select w;
+      }
 
       /// <inheritdoc />
       protected override bool ShouldMoveForward(int commandId)
@@ -345,11 +357,16 @@ namespace TabGroupJumperVSIX
     /// <summary> Command implementation for moving next/previous. </summary>
     private class TabGroupMoverNextPrevious : TabGroupMover
     {
+      public TabGroupMoverNextPrevious(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+      {
+      }
+
       /// <inheritdoc />
-      protected override IEnumerable<Window> FilterAndSort(IEnumerable<Window> windows, Document activeDocument)
+      protected override IEnumerable<WindowData> FilterAndSort(IEnumerable<WindowData> windows,
+                                                               WindowData activeWindow)
         => from w in windows
-           let rect = MeasureBounds(w)
-           orderby rect.left, rect.top
+           orderby w.Bounds.left, w.Bounds.top
            select w;
 
       /// <inheritdoc />
