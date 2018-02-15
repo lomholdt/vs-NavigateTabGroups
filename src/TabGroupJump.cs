@@ -155,19 +155,16 @@ namespace TabGroupJumperVSIX
 
         var activePanes = GetActivePanes(dte).ToList();
 
-        ActivePane activePane = null;
+        var currentlyActiveWindow = dte.ActiveWindow;
 
-        foreach (var pane in activePanes)
-        {
-          if (pane.Window == dte.ActiveWindow)
-          {
-            activePane = pane;
-            break;
-          }
-        }
+        var activePane =
+          LookupPaneByWindow(currentlyActiveWindow, activePanes)
+          ?? LookupPaneByHierarchy(currentlyActiveWindow, activePanes);
 
         if (activePane == null)
+        {
           return;
+        }
 
         var filteredPanes = FilterAndSort(activePanes, activePane).ToList();
 
@@ -175,7 +172,7 @@ namespace TabGroupJumperVSIX
           return;
 
         var isMovingForward = ShouldMoveForward(commandId);
-        var indexOfCurrentTabGroup = GetActivePaneIndex(filteredPanes, dte.ActiveWindow);
+        var indexOfCurrentTabGroup = filteredPanes.IndexOf(activePane);
 
         // get the tab to activate
         var offset = isMovingForward ? 1 : -1;
@@ -183,6 +180,59 @@ namespace TabGroupJumperVSIX
 
         // and activate it
         filteredPanes[nextIndex].Window.Activate();
+      }
+
+      /// <summary> Looks up a pane by comparing the window of the pane to a given value. </summary>
+      private static ActivePane LookupPaneByWindow(Window windowToSearchFor, List<ActivePane> activePanes)
+      {
+        ActivePane activePane = null;
+        foreach (var pane in activePanes)
+        {
+          if (pane.Window == windowToSearchFor)
+          {
+            activePane = pane;
+            break;
+          }
+        }
+        return activePane;
+      }
+
+      /// <summary>
+      ///  Searches for a pane by seeing if any of the window's parents are a pane that we know about.
+      /// </summary>
+      private static ActivePane LookupPaneByHierarchy(Window childWindow, List<ActivePane> activePanes)
+      {
+        // welp, we're not directly in a document.  BUT, what if the window is inside of a
+        // document?  In that case, try to go up until we find a document pane that we know about. 
+        //        
+        // This happens for Project Property panes
+        var currentHwnd = new IntPtr(childWindow.HWnd);
+
+        // max out at 20 just in case we keep going up and never find anything. 
+        for (int i = 0; i < 20 && currentHwnd != IntPtr.Zero; i++)
+        {
+          currentHwnd = GetParent(currentHwnd);
+          var activePane = LookupPaneByHwnd(currentHwnd);
+          if (activePane != null)
+          {
+            return activePane;
+          }
+        }
+
+        return null;
+
+        ActivePane LookupPaneByHwnd(IntPtr searchHwnd)
+        {
+          foreach (var pane in activePanes)
+          {
+            if (new IntPtr(pane.Window.HWnd) == searchHwnd)
+            {
+              return pane;
+            }
+          }
+
+          return null;
+        }
       }
 
       /// <summary> Get all of the Windows that have an associated frame. </summary>
@@ -194,12 +244,10 @@ namespace TabGroupJumperVSIX
 
         foreach (var frame in frames)
         {
-          if (frame.GetProperty((int)__VSFPROPID.VSFPROPID_ExtWindowObject, out var window) == 0
-              && window is Window typedWindow
-              && existingWindows.Contains(typedWindow)
-            )
+          var associatedWindow = VsShellUtilities.GetWindowObject(frame);
+          if (associatedWindow != null && existingWindows.Contains(associatedWindow))
           {
-            yield return new ActivePane(typedWindow, frame);
+            yield return new ActivePane(associatedWindow, frame);
           }
         }
       }
@@ -230,22 +278,16 @@ namespace TabGroupJumperVSIX
         }
       }
 
-      private static int GetActivePaneIndex(List<ActivePane> panes, Window activeWindow)
-      {
-        for (var i = 0; i < panes.Count; i++)
-        {
-          var data = panes[i];
-          if (data.Window == activeWindow)
-            return i;
-        }
-
-        return 0;
-      }
-
       /// <summary> Clamp the given value to be between 0 and <paramref name="count"/>. </summary>
       private static int Clamp(int count, int number)
         => (number < 0 ? number + count : number) % count;
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    public static extern IntPtr GetParent(IntPtr hWnd);
 
     /// <summary> Information about an active window. </summary>
     private class ActivePane
@@ -274,6 +316,11 @@ namespace TabGroupJumperVSIX
           return rect;
         }
 
+        if (Window.HWnd != 0 && GetWindowRect(new IntPtr(Window.HWnd), out var rect2))
+        {
+          return rect2;
+        }
+
         // fallback where Top is wrong for windows that are vertically split. 
         return new RECT
                {
@@ -283,9 +330,6 @@ namespace TabGroupJumperVSIX
                  bottom = window.Top + window.Height
                };
       }
-
-      [DllImport("user32.dll", SetLastError = true)]
-      private static extern bool GetWindowRect(IntPtr hwnd, out RECT lpRect);
     }
 
     /// <summary> Command implementation for moving up/down. </summary>
