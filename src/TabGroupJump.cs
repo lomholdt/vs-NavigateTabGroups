@@ -15,6 +15,7 @@ using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Platform.WindowManagement;
 using IServiceProvider = System.IServiceProvider;
 
 namespace TabGroupJumperVSIX
@@ -238,16 +239,13 @@ namespace TabGroupJumperVSIX
       /// <summary> Get all of the Windows that have an associated frame. </summary>
       private IEnumerable<ActivePane> GetActivePanes(DTE2 dte)
       {
-        var existingWindows = new HashSet<Window>(GetActiveWindows(dte));
+        var framesAndAssociatedWindows = GetActiveWindowToFramesLookup(dte.ActiveWindow);
 
-        var frames = GetFrames();
-
-        foreach (var frame in frames)
+        foreach (var window in GetActiveWindows(dte))
         {
-          var associatedWindow = VsShellUtilities.GetWindowObject(frame);
-          if (associatedWindow != null && existingWindows.Contains(associatedWindow))
+          if (framesAndAssociatedWindows.TryGetValue(window, out var frame))
           {
-            yield return new ActivePane(associatedWindow, frame);
+            yield return new ActivePane(window, frame);
           }
         }
       }
@@ -258,8 +256,25 @@ namespace TabGroupJumperVSIX
         // documents that are not the focused document in a group will have Top == 0 && Left == 0
         return from window in dte.Windows.Cast<Window>()
                where window.Kind == "Document"
-               where window.Top != 0 || window.Left != 0
                select window;
+      }
+
+      /// <summary> Get all known <see cref="IVsWindowFrame"/>, lazily, that are active/on-screen. </summary>
+      private Dictionary<Window, IVsWindowFrame> GetActiveWindowToFramesLookup(Window activeWindow)
+      {
+        var actives = from frame in GetFrames()
+                      let window = VsShellUtilities.GetWindowObject(frame)
+                      where window != null
+                      where (frame as WindowFrame)?.OnScreen == true || window == activeWindow
+                      select new { window, frame };
+
+        var windowToFrameLookup = new Dictionary<Window, IVsWindowFrame>();
+        foreach (var active in actives)
+        {
+          windowToFrameLookup[active.window] = active.frame;
+        }
+
+        return windowToFrameLookup;
       }
 
       /// <summary> Get all known <see cref="IVsWindowFrame"/>, lazily. </summary>
